@@ -24,3 +24,16 @@ class CrossWindowEvent {
     required this.eventAction,
   });
 }
+
+typedef OnLoaded = void Function(EasyWebViewControllerWrapperBase controller);
+
+abstract class EasyWebViewControllerWrapperBase {
+  /// WebViewController on mobile, IFrameElement on web
+  Object get nativeWrapper;
+
+  Future<void> evaluateJSMobile(String js);
+
+  Future<String> evaluateJSWithResMobile(String js);
+
+  void postMessageWeb(dynamic message, String targetOrigin);
+}

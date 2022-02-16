@@ -1,6 +1,7 @@
+import 'package:example/ui/home/list_web_view.dart';
 import 'package:flutter/material.dart';
 
-import 'ui/home/screen.dart';
+// import 'ui/home/screen.dart';
 
 void main() => runApp(MyApp());
 
@@ -10,7 +11,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Easy Web View',
       theme: ThemeData.light(),
-      home: HomeScreen(),
+      home: ListWebView(),
       debugShowCheckedModeBanner: false,
     );
   }

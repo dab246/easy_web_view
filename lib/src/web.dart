@@ -7,11 +7,34 @@ import 'package:flutter/material.dart';
 
 import 'impl.dart';
 
+class EasyWebViewControllerWrapper extends EasyWebViewControllerWrapperBase {
+  final html.IFrameElement _iframe;
+
+  EasyWebViewControllerWrapper._(this._iframe);
+
+  @override
+  Future<void> evaluateJSMobile(String js) {
+    throw UnsupportedError("the platform doesn't support this operation");
+  }
+
+  @override
+  Future<String> evaluateJSWithResMobile(String js) {
+    throw UnsupportedError("the platform doesn't support this operation");
+  }
+
+  @override
+  Object get nativeWrapper => _iframe;
+
+  @override
+  void postMessageWeb(dynamic message, String targetOrigin) =>
+      _iframe.contentWindow?.postMessage(message, targetOrigin);
+}
+
 class EasyWebView extends StatefulWidget implements EasyWebViewImpl {
   const EasyWebView({
     Key? key,
     required this.src,
-    required this.onLoaded,
+    this.onLoaded,
     this.height,
     this.width,
     this.webAllowFullScreen = true,
@@ -60,7 +83,7 @@ class EasyWebView extends StatefulWidget implements EasyWebViewImpl {
   final bool widgetsTextSelectable;
 
   @override
-  final void Function() onLoaded;
+  final OnLoaded? onLoaded;
 
   @override
   final List<CrossWindowEvent> crossWindowEvents;
@@ -70,16 +93,20 @@ class EasyWebView extends StatefulWidget implements EasyWebViewImpl {
 }
 
 class _EasyWebViewState extends State<EasyWebView> {
+  late Key effectiveKey;
+
   @override
   void initState() {
-    widget.onLoaded();
-    WidgetsBinding.instance?.addPostFrameCallback((timeStamp) {
-      final _iframe = _iframeElementMap[widget.key];
-      _iframe?.onLoad.listen((event) {
-        widget.onLoaded();
-      });
-    });
     super.initState();
+    effectiveKey = widget.key ?? ValueKey('');
+    WidgetsBinding.instance?.addPostFrameCallback((timeStamp) {
+      final _iframe = _iframeElementMap[effectiveKey];
+      if (_iframe != null) {
+        _iframe.onLoad.listen((event) {
+          widget.onLoaded?.call(EasyWebViewControllerWrapper._(_iframe));
+        });
+      }
+    });
   }
 
   @override
@@ -131,7 +158,7 @@ class _EasyWebViewState extends State<EasyWebView> {
         return AbsorbPointer(
           child: RepaintBoundary(
             child: HtmlElementView(
-              key: widget.key,
+              key: effectiveKey,
               viewType: 'iframe-$src',
             ),
           ),
@@ -143,20 +170,18 @@ class _EasyWebViewState extends State<EasyWebView> {
   static final _iframeElementMap = Map<Key, html.IFrameElement>();
 
   void _setup(String? src, double width, double height) {
-    final key = widget.key ?? ValueKey('');
+    // final key = widget.key ?? ValueKey('');
     // ignore: undefined_prefixed_name
     ui.platformViewRegistry.registerViewFactory('iframe-$src', (int viewId) {
-      if (_iframeElementMap[key] == null) {
-        _iframeElementMap[key] = html.IFrameElement();
-      }
-      final element = _iframeElementMap[widget.key];
+      final element = _iframeElementMap[effectiveKey] ??= html.IFrameElement();
 
-      element!
+      element
+        ..id = 'iframe-$viewId'
         ..style.border = '0'
         ..allowFullscreen = widget.webAllowFullScreen
         ..allow = widget.allow
-        ..height = height.toInt().toString()
-        ..width = width.toInt().toString();
+        ..style.width = '100%'
+        ..style.height = '100%';
 
       html.window.addEventListener('onbeforeunload', (event) async {
         final beforeUnloadEvent = (event as html.BeforeUnloadEvent);
@@ -184,17 +209,23 @@ class _EasyWebViewState extends State<EasyWebView> {
         });
       }
       String _src = src ?? '';
+      String? _srcDoc;
       if (src != null) {
         if (widget.isMarkdown) {
-          _src = "data:text/html;charset=utf-8," +
-              Uri.encodeComponent(EasyWebViewImpl.md2Html(src));
+          // _src = "data:text/html;charset=utf-8," +
+          //     Uri.encodeComponent(EasyWebViewImpl.md2Html(src));
+          _srcDoc = EasyWebViewImpl.md2Html(src);
         }
         if (widget.isHtml) {
-          _src = "data:text/html;charset=utf-8," +
-              Uri.encodeComponent(EasyWebViewImpl.wrapHtml(src));
+          // _src = "data:text/html;charset=utf-8," +
+          //     Uri.encodeComponent(EasyWebViewImpl.wrapHtml(src));
+          _srcDoc = EasyWebViewImpl.wrapHtml(src);
         }
       }
-      element..src = _src;
+      if (_srcDoc != null) {
+        element.srcdoc = _srcDoc;
+      }
+      element.src = _src;
       return element;
     });
   }
